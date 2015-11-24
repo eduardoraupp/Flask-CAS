@@ -152,6 +152,7 @@ def is_logged():
     to authorize the resource access.
     """
     ticket = None
+
     if 'ticket' in flask.request.args:
         ticket = flask.request.args['ticket']
     elif 'SAMLart' in flask.request.args:
