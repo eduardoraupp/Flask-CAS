@@ -14,6 +14,7 @@ except ImportError:
     from flask import _request_ctx_stack as stack
 
 from . import routing
+from flask_cas.routing import is_logged
 
 from functools import wraps
 
@@ -95,6 +96,8 @@ def logout():
 def login_required(function):
     @wraps(function)
     def wrap(*args, **kwargs):
+        if is_logged():
+            return function(*args, **kwargs)
         if 'CAS_USERNAME' not in flask.session:
             flask.session['CAS_AFTER_LOGIN_SESSION_URL'] = flask.request.path
             return login()

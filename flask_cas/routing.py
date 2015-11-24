@@ -85,7 +85,7 @@ def logout():
     return flask.redirect(redirect_url)
 
 
-def validate(ticket):
+def validate(ticket, url=None):
     """
     Will attempt to validate the ticket. If validation fails, then False
     is returned. If validation is successful, then True is returned
@@ -93,6 +93,9 @@ def validate(ticket):
     key `CAS_USERNAME_SESSION_KEY` while tha validated attributes dictionary
     is saved under the key 'CAS_ATTRIBUTES_SESSION_KEY'.
     """
+
+    if not url:
+        url = flask.url_for('.login', _external=True)
 
     cas_username_session_key = current_app.config['CAS_USERNAME_SESSION_KEY']
     cas_attributes_session_key = current_app.config['CAS_ATTRIBUTES_SESSION_KEY']
@@ -102,7 +105,7 @@ def validate(ticket):
     cas_validate_url = create_cas_validate_url(
         current_app.config['CAS_SERVER'],
         current_app.config['CAS_VALIDATE_ROUTE'],
-        flask.url_for('.login', _external=True),
+        url,
         ticket)
 
     current_app.logger.debug("Making GET request to {0}".format(
@@ -122,16 +125,39 @@ def validate(ticket):
         current_app.logger.debug("valid")
         xml_from_dict = xml_from_dict["cas:serviceResponse"]["cas:authenticationSuccess"]
         username = xml_from_dict["cas:user"]
-        attributes = xml_from_dict["cas:attributes"]
 
-        if "cas:memberOf" in attributes:
-            attributes["cas:memberOf"] = attributes["cas:memberOf"].lstrip('[').rstrip(']').split(',')
-            for group_number in range(0, len(attributes['cas:memberOf'])):
-                attributes['cas:memberOf'][group_number] = attributes['cas:memberOf'][group_number].lstrip(' ').rstrip(' ')
+        if "cas:attributes" in xml_from_dict.keys():
+            attributes = xml_from_dict["cas:attributes"]
+
+            if "cas:memberOf" in attributes:
+                attributes["cas:memberOf"] = attributes["cas:memberOf"].lstrip('[').rstrip(']').split(',')
+                for group_number in range(0, len(attributes['cas:memberOf'])):
+                    attributes['cas:memberOf'][group_number] = attributes['cas:memberOf'][group_number].lstrip(' ').rstrip(' ')
+
+            flask.session[cas_attributes_session_key] = attributes
 
         flask.session[cas_username_session_key] = username
-        flask.session[cas_attributes_session_key] = attributes
     else:
         current_app.logger.debug("invalid")
 
     return isValid
+
+def is_logged():
+    """
+    This method has the responsability of verifying if the service
+    ticket is valid. It has the purpose for working in situation where
+    the front is decoupled from the backend and session authorization
+    does not work.
+    After request the ticket validation, it sends a boolean value
+    to authorize the resource access.
+    """
+
+    cas_token_session_key = current_app.config['CAS_TOKEN_SESSION_KEY']
+
+    if 'ticket' in flask.request.args:
+        flask.session[cas_token_session_key] = flask.request.args['ticket']
+    elif 'SAMLart' in flask.request.args:
+        flask.session[cas_token_session_key] = flask.request.args['SAMLart']
+
+    if cas_token_session_key in flask.session:
+        return validate(flask.session[cas_token_session_key], url=flask.request.base_url)
