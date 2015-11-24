@@ -151,13 +151,10 @@ def is_logged():
     After request the ticket validation, it sends a boolean value
     to authorize the resource access.
     """
-
-    cas_token_session_key = current_app.config['CAS_TOKEN_SESSION_KEY']
-
+    ticket = None
     if 'ticket' in flask.request.args:
-        flask.session[cas_token_session_key] = flask.request.args['ticket']
+        ticket = flask.request.args['ticket']
     elif 'SAMLart' in flask.request.args:
-        flask.session[cas_token_session_key] = flask.request.args['SAMLart']
+        ticket = flask.request.args['SAMLart']
 
-    if cas_token_session_key in flask.session:
-        return validate(flask.session[cas_token_session_key], url=flask.request.base_url)
+    return validate(ticket, url=flask.request.base_url)
