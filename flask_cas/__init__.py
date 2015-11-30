@@ -15,6 +15,7 @@ except ImportError:
 
 from . import routing
 from flask_cas.routing import is_logged
+from flask import abort
 
 from functools import wraps
 
@@ -98,9 +99,6 @@ def login_required(function):
     def wrap(*args, **kwargs):
         if is_logged():
             return function(*args, **kwargs)
-        if 'CAS_USERNAME' not in flask.session:
-            flask.session['CAS_AFTER_LOGIN_SESSION_URL'] = flask.request.path
-            return login()
         else:
-            return function(*args, **kwargs)
+            abort(401)
     return wrap
